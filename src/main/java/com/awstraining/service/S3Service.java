@@ -1,12 +1,16 @@
 package com.awstraining.service;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 @Service
@@ -17,30 +21,14 @@ public class S3Service {
     @Autowired
     private AmazonS3 s3;
 
-    @Autowired
-    private UtilityService utilityService;
-
     public byte[] downloadImage(String imageName) {
         doesBucketExist();
-
         S3Object object = s3.getObject(S3_BUCKET_NAME, imageName);
-        return utilityService.readFileByName(object);
-    }
-
-    public ObjectMetadata getObjectMetadata(String imageName) {
-        doesBucketExist();
-        S3Object object = s3.getObject(S3_BUCKET_NAME, imageName);
-        return object.getObjectMetadata();
-    }
-
-    public void uploadImage(InputStream input, String filename, String filePath) {
-        doesBucketExist();
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.addUserMetadata("Name", filename);
-        metadata.setContentType("image/jpg");
-        PutObjectRequest request = new PutObjectRequest(S3_BUCKET_NAME, filePath, input, metadata);
-        request.setMetadata(metadata);
-        s3.putObject(request);
+        try {
+            return object.getObjectContent().readAllBytes();
+        } catch (IOException | AmazonClientException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
     }
 
     public void deleteImage(String objectName) {
@@ -53,6 +41,4 @@ public class S3Service {
             s3.createBucket(S3_BUCKET_NAME);
         }
     }
-
-
 }
