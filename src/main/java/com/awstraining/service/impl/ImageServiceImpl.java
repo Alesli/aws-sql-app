@@ -2,14 +2,17 @@ package com.awstraining.service.impl;
 
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.transfer.TransferManager;
+import com.awstraining.controller.ImageController;
 import com.awstraining.dao.ImageRepository;
 import com.awstraining.dto.ImageModelDto;
 import com.awstraining.entity.ImageModel;
 import com.awstraining.mapper.ImageModelMapper;
 import com.awstraining.service.ImageService;
-import com.awstraining.service.S3Service;
+import com.awstraining.service.NotificationService;
+import com.awstraining.service.S3Utils;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,19 +25,22 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 @Service
 @RequiredArgsConstructor
 public class ImageServiceImpl implements ImageService {
+    private static final String IMAGE_UPLOAD_ACTION = "Image has been uploaded successful";
 
-    private static final String S3_BUCKET_NAME = "alesia-skarakhod-web-site/images";
+    @Value("${s3.bucket.name}")
+    private String s3BucketName;
 
-    private ImageRepository imageRepository;
-
-    private ImageModelMapper imageModelMapper;
-
-    private S3Service s3Service;
-
+    private final ImageRepository imageRepository;
+    private final ImageModelMapper imageModelMapper;
+    private final S3Utils s3Utils;
     private final TransferManager transferManager;
+    private final NotificationService notificationService;
 
     @Value("${server.port}")
     private String serverPort;
@@ -52,7 +58,7 @@ public class ImageServiceImpl implements ImageService {
     @Transactional
     public byte[] download(String name) {
         Optional<ImageModel> imageModel = imageRepository.getOneByName(name);
-        return imageModelMapper.downloadModel(imageModel.get(), s3Service).getBitmap();
+        return imageModelMapper.downloadModel(imageModel.get(), s3Utils).getBitmap();
     }
 
     @Transactional
@@ -62,7 +68,7 @@ public class ImageServiceImpl implements ImageService {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Image is already present");
                 });
         try {
-        var upload = transferManager.upload(S3_BUCKET_NAME,
+        var upload = transferManager.upload(s3BucketName,
                 multipartFile.getOriginalFilename(), multipartFile.getInputStream(),
                 new ObjectMetadata());
         upload.waitForUploadResult();
@@ -72,13 +78,19 @@ public class ImageServiceImpl implements ImageService {
                 .size(multipartFile.getSize())
                 .lastUpdateDate(LocalDateTime.now())
                 .build();
-//            imageRepository.saveAndFlush(imageModel);
-            ImageModel save = imageRepository.save(imageModel);
-            imageModelMapper.downloadModel(save, s3Service);
+            imageRepository.saveAndFlush(imageModel);
+//            ImageModel imageModelForSave = imageRepository.save(imageModel);
+//            imageModelMapper.downloadModel(imageModelForSave, s3Utils);
+            notificationService.sendMessageToQueue(createMessage(imageModel));
         } catch (IOException | InterruptedException e) {
             deleteByName(multipartFile.getOriginalFilename());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         }
+    }
+    private String createMessage(ImageModel imageMetadata) {
+        var downloadLink = linkTo(methodOn(ImageController.class).download(imageMetadata.getName()));
+        return StringUtils.joinWith(":::", IMAGE_UPLOAD_ACTION, imageMetadata.toString(),
+                downloadLink);
     }
 
     @Transactional
@@ -86,7 +98,7 @@ public class ImageServiceImpl implements ImageService {
         List<ImageModel> imageModelList = imageRepository.findAllByName(name);
         imageModelList.stream()
                 .map(ImageModel::getName)
-                .forEach(s3Service::deleteImage);
+                .forEach(s3Utils::deleteImage);
         imageModelList.forEach(imageRepository::delete);
     }
 }

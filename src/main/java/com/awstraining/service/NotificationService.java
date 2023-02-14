@@ -1,5 +1,6 @@
 package com.awstraining.service;
 
+import com.amazonaws.services.sqs.model.DeleteMessageResult;
 import com.amazonaws.services.sqs.model.Message;
 
 import java.util.List;
@@ -13,6 +14,7 @@ public interface NotificationService {
   void sendMessageToQueue(String message);
 
   void sendMessageToTopic(String message);
+  DeleteMessageResult deleteMessage(String message);
 
   List<Message> readMessages();
 }

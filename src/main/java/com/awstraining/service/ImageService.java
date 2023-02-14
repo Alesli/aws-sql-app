@@ -7,13 +7,13 @@ import java.util.List;
 
 public interface ImageService {
 
-    void upload(MultipartFile file);
+    List<ImageModelDto> findAllMetadata();
+
+    ImageModelDto getOneRandomMetadata();
 
     byte[] download(String name);
 
-    List<ImageModelDto> findAllMetadata();
+    void upload(MultipartFile file);
 
     void deleteByName(String name);
-
-    ImageModelDto getOneRandomMetadata();
 }

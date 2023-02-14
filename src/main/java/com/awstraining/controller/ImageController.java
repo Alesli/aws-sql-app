@@ -1,8 +1,10 @@
 package com.awstraining.controller;
 
 import com.awstraining.dto.ImageModelDto;
-import com.awstraining.service.impl.ImageServiceImpl;
+import com.awstraining.service.ImageService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,34 +13,40 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
-@RequestMapping("/")
+@RequestMapping("/images/")
+@RequiredArgsConstructor
 public class ImageController {
 
     @Autowired
-    private ImageServiceImpl imageServiceImpl;
+    private final ImageService imageService;
 
     @GetMapping("list-metadata")
     public List<ImageModelDto> getAllMetadata() {
-        return imageServiceImpl.findAllMetadata();
+        return imageService.findAllMetadata();
     }
 
     @GetMapping(value = "download/{name}", produces = MediaType.IMAGE_JPEG_VALUE)
-    public byte[] download(@PathVariable String name) {
-        return imageServiceImpl.download(name);
+    public ResponseEntity<ByteArrayResource> download(@PathVariable String name) {
+        var data=  imageService.download(name);
+        return ResponseEntity.ok()
+                .contentLength(data.length)
+                .header("Content-type", "application/octet-stream")
+                .header("Content-disposition", "attachment; fileName=\"" + name + "\"")
+                .body(new ByteArrayResource(data));
     }
 
     @PostMapping("upload")
-    public void upload(@ModelAttribute MultipartFile multipartFile) {
-        imageServiceImpl.upload(multipartFile);
+    public void upload(@RequestParam("file")  MultipartFile multipartFile) {
+        imageService.upload(multipartFile);
     }
 
     @DeleteMapping("delete/{name}")
     public void delete(@PathVariable String name) {
-        imageServiceImpl.deleteByName(name);
+        imageService.deleteByName(name);
     }
 
     @GetMapping("get-random")
     public ImageModelDto getRandom() {
-        return imageServiceImpl.getOneRandomMetadata();
+        return imageService.getOneRandomMetadata();
     }
 }
