@@ -81,7 +81,7 @@ public class ImageServiceImpl implements ImageService {
             imageRepository.saveAndFlush(imageModel);
 //            ImageModel imageModelForSave = imageRepository.save(imageModel);
 //            imageModelMapper.downloadModel(imageModelForSave, s3Utils);
-            notificationService.sendMessageToQueue(createMessage(imageModel));
+//            notificationService.sendMessageToQueue(createMessage(imageModel));
         } catch (IOException | InterruptedException e) {
             deleteByName(multipartFile.getOriginalFilename());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);

@@ -6,7 +6,7 @@
 
     <groupId>com.aws-training</groupId>
     <artifactId>aws-sql-app</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1</version>
     <packaging>jar</packaging>
     <name>AwsTraining SQL App</name>
 
